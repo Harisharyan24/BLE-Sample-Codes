@@ -1,0 +1,30 @@
+pip install west
+  369  west --version
+  370  python3 -m site --user-base
+  371  export PATH="$HOME/.local/bin:$PATH"
+  372  source ~/.bashrc
+  373  west init zephyrproject
+  374  west build -p -b nrf52840dk/nrf52840 path/to/your/app
+  375  west build -p -b nrf52840dk/nrf52840
+  376  west update
+  377  cd
+  378  cd ncs/v3.1.0/
+  379  west update
+  380* 
+  381  sudo apt install git
+  382  git --version
+  383  west update
+  384  cd zephyr/samples/bluetooth/new_custom/
+  385  west build -p -b nrf52840dk/nrf52840
+  386  sudo apt install cmake
+  387  west build -p -b nrf52840dk/nrf52840
+  388  west build  -b nrf52840dk/nrf52840
+  389  ls
+  390  rm -rf build/
+  391  ls
+  392  west build  -b nrf52840dk/nrf52840
+  393  sudo apt update
+  394  sudo apt install ninja-build
+  395  west build  -b nrf52840dk/nrf52840
+  396  wget https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v0.16.4/zephyr-sdk-0.16.4_linux-x86_64.tar.xz
+  397  history
