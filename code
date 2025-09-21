@@ -1,0 +1,188 @@
+#include "new_custom.h"
+
+uint8_t cus_ntf_enabled = 0;
+uint8_t cus_ind_enabled = 0;
+
+#define BT_UUID_CUSTOM_READ_VAL      BT_UUID_128_ENCODE(0x11111111,0x2222,0x3333,0x4444,0x555555555555)
+#define BT_UUID_CUSTOM_WRITE_VAL     BT_UUID_128_ENCODE(0x66666666,0x7777,0x8888,0x9999,0xaaaaaaaaaaaa)
+#define BT_UUID_CUSTOM_INDICATE_VAL  BT_UUID_128_ENCODE(0xbbbbbbbb,0xcccc,0xdddd,0xeeee,0xfffffffffffa)
+#define BT_UUID_CUSTOM_NOTIFY_VAL    BT_UUID_128_ENCODE(0xbbbbbbbb,0xcccc,0xdddd,0xeeee,0xfffffffffffb)
+#define BT_UUID_CUSTOM_WRITE_NR_VAL  BT_UUID_128_ENCODE(0xbbbbbbbb,0xcccc,0xdddd,0xeeee,0xfffffffffffc)
+
+static struct bt_uuid_128 custom_service_uuid = BT_UUID_INIT_128(BT_UUID_CUSTOM_SERVICE_VAL);
+static struct bt_uuid_128 custom_read_uuid     = BT_UUID_INIT_128(BT_UUID_CUSTOM_READ_VAL);
+static struct bt_uuid_128 custom_write_uuid    = BT_UUID_INIT_128(BT_UUID_CUSTOM_WRITE_VAL);
+static struct bt_uuid_128 custom_indicate_uuid = BT_UUID_INIT_128(BT_UUID_CUSTOM_INDICATE_VAL);
+static struct bt_uuid_128 custom_notify_uuid   = BT_UUID_INIT_128(BT_UUID_CUSTOM_NOTIFY_VAL);
+static struct bt_uuid_128 custom_write_nr_uuid = BT_UUID_INIT_128(BT_UUID_CUSTOM_WRITE_NR_VAL);
+
+/* Characteristic values*/
+static uint8_t read_value      = 0x11;
+static uint8_t write_value     = 0x22;
+static uint8_t indicate_value  = 0x33;
+static uint8_t notify_value    = 0x44;
+static uint8_t write_nr_value  = 0x55;
+
+// extern enabled;
+
+static ssize_t read_func(struct bt_conn *conn, const struct bt_gatt_attr *attr,
+                         void *buf, uint16_t len, uint16_t offset)
+{
+    const uint8_t *value = attr->user_data;
+    if (offset >= sizeof(uint8_t)) {
+        return 0;
+    }
+    if (len > sizeof(uint8_t) - offset) {
+        len = sizeof(uint8_t) - offset;
+    }
+    return bt_gatt_attr_read(conn, attr, buf, len, offset, value, sizeof(uint8_t));
+}
+
+/* Write callback */
+static ssize_t write_func(struct bt_conn *conn, const struct bt_gatt_attr *attr,
+                          const void *buf, uint16_t len, uint16_t offset, uint8_t flags)
+{
+    uint8_t *value = attr->user_data;
+    const uint8_t *data = buf;
+
+    if (offset != 0 || len != 1) {
+        return BT_GATT_ERR(BT_ATT_ERR_INVALID_OFFSET);
+    }
+
+    *value = *data;
+    printk("Write characteristic: 0x%02x\n", *value);
+    return len;
+}
+
+/* Indicate/Notify CCC callbacks */
+// static void indicate_ccc_cfg_changed(const struct bt_gatt_attr *attr, uint16_t value)
+// {
+//     // printk("Indicate CCC changed: %u\n", value);
+//     cus_ind_enabled=value;
+// }
+
+// static void notify_ccc_cfg_changed(const struct bt_gatt_attr *attr, uint16_t value)
+// {
+    
+//     // printk("Notify CCC changed: %u\n", value);
+//     cus_ntf_enabled=value;
+// }
+
+
+static void indicate_ccc_cfg_changed(const struct bt_gatt_attr *attr, uint16_t value)
+{
+    cus_ind_enabled = (value != 0) ? 1 : 0;
+    printk("Indicate CCC changed: %s\n", cus_ind_enabled ? "enabled" : "disabled");
+}
+
+static void notify_ccc_cfg_changed(const struct bt_gatt_attr *attr, uint16_t value)
+{
+    cus_ntf_enabled = (value != 0) ? 1 : 0;
+    printk("Notify CCC changed: %s\n", cus_ntf_enabled ? "enabled" : "disabled");
+}
+
+/* Indicate complete callback */
+// static void indicate_cb(struct bt_conn *conn, const struct bt_gatt_attr *attr, uint8_t err)
+// {
+//     printk("Indication %s\n", err == 0 ? "success" : "fail");
+// }
+
+
+/* GATT Service Declaration */
+BT_GATT_SERVICE_DEFINE(custom_svc,
+    BT_GATT_PRIMARY_SERVICE(&custom_service_uuid),
+
+    /* 1. Read Characteristic */
+    BT_GATT_CHARACTERISTIC(&custom_read_uuid.uuid,
+        BT_GATT_CHRC_READ,
+        BT_GATT_PERM_READ,
+        read_func, NULL, &read_value),
+
+    /* 2. Write Characteristic */
+    BT_GATT_CHARACTERISTIC(&custom_write_uuid.uuid,
+        BT_GATT_CHRC_WRITE,
+        BT_GATT_PERM_WRITE,
+        NULL, write_func, &write_value),
+
+    /* 3. Indicate Characteristic */
+    BT_GATT_CHARACTERISTIC(&custom_indicate_uuid.uuid,
+        BT_GATT_CHRC_INDICATE,
+        BT_GATT_PERM_READ,
+        read_func, NULL, &indicate_value),
+    BT_GATT_CCC(indicate_ccc_cfg_changed, BT_GATT_PERM_READ | BT_GATT_PERM_WRITE),
+
+    /* 4. Notify Characteristic */
+    BT_GATT_CHARACTERISTIC(&custom_notify_uuid.uuid,
+        BT_GATT_CHRC_NOTIFY,
+        BT_GATT_PERM_READ,
+        read_func, NULL, &notify_value),
+    BT_GATT_CCC(notify_ccc_cfg_changed, BT_GATT_PERM_READ | BT_GATT_PERM_WRITE),
+
+    /* 5. Write Without Response Characteristic */
+    BT_GATT_CHARACTERISTIC(&custom_write_nr_uuid.uuid,
+        BT_GATT_CHRC_WRITE_WITHOUT_RESP,
+        BT_GATT_PERM_WRITE,
+        NULL, write_func, &write_nr_value)
+);
+
+
+//functions:
+
+/************** */
+
+// ...existing code...
+
+// extern void custom_notify_all(void)
+// {
+
+//     notify_value++;
+//     bt_gatt_notify(NULL, &custom_svc.attrs[10], &notify_value, sizeof(notify_value));
+//     // printk("\n");
+//     printk("Notification sent: 0x%02x\n", notify_value);
+// }
+
+// extern void custom_indicate_all(void)
+// {
+//     static struct bt_gatt_indicate_params ind_params;
+
+//     indicate_value++;
+//     ind_params.attr = &custom_svc.attrs[7]; // index of indicate characteristic value
+//     //ind_params.func = indicate_cb;
+//     ind_params.data = &indicate_value;
+//     ind_params.len  = sizeof(indicate_value);
+
+//     bt_gatt_indicate(NULL, &ind_params);
+//     printk("Indication sent: 0x%02x\n", indicate_value);
+// }
+
+
+extern void custom_notify_all(void)
+{
+    if (!cus_ntf_enabled) {
+        printk("Notification not sent — client has not enabled notifications\n");
+        return;
+    }
+
+    notify_value++;
+    bt_gatt_notify(NULL, &custom_svc.attrs[9], &notify_value, sizeof(notify_value));
+    printk("Notification sent: 0x%02x\n", notify_value);
+}
+
+extern void custom_indicate_all(void)
+{
+    if (!cus_ind_enabled) {
+        printk("Indication not sent — client has not enabled indications\n");
+        return;
+    }
+
+    static struct bt_gatt_indicate_params ind_params;
+
+    indicate_value++;
+    ind_params.attr = &custom_svc.attrs[6];
+    ind_params.func = NULL;
+    ind_params.data = &indicate_value;
+    ind_params.len  = sizeof(indicate_value);
+
+    bt_gatt_indicate(NULL, &ind_params);
+    printk("Indication sent: 0x%02x\n", indicate_value);
+}
